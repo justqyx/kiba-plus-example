@@ -1,0 +1,60 @@
+require 'rubygems'
+require 'bundler/setup'
+
+Bundler.require(:default)
+
+def mysql2_connect_hash(url)
+  return url if url.is_a?(Hash)
+
+  u = URI.parse(url)
+  {
+    host: u.host,
+    port: u.port,
+    username: u.user,
+    password: u.password,
+    database: u.path[1..-1]
+  }
+end
+
+SOURCE_URL = 'mysql://root:root@localhost/pay_development'
+DEST_URL = 'postgresql://yuanxin@localhost:5432/crm2_dev'
+
+pre_process do
+  @job_id = Kiba::Plus::Job.new(
+    connect_url: DEST_URL,
+    start_at: Time.now.strftime("%Y-%m-%dT%H:%M:%S"),
+    job_name: 'order'
+  ).start
+end
+
+last_pull_at = Kiba::Plus::Job.new(
+  connect_url: DEST_URL,
+  job_name: 'order'
+).last_pull_at
+
+source(Kiba::Plus::Source::Mysql, {
+  connect_url: SOURCE_URL,
+  query: %Q{SELECT id, amount FROM orders WHERE updated_at > '#{last_pull_at.to_s}'},
+  last_pull_at: last_pull_at,
+  incremental: true
+})
+
+destination(Kiba::Plus::Destination::PgBulk2, {
+  connect_url: DEST_URL,
+  table_name: 'orders',
+  truncate: false,
+  columns: %i(id amount),
+  incremental: true,
+  unique_by: :id
+})
+
+post_process do
+  Kiba::Plus::Job.new(
+    connect_url: DEST_URL,
+    job_id: @job_id,
+    job_name: 'order'
+  ).complete
+
+  result = PG.connect(DEST_URL).query("SELECT COUNT(*) AS num FROM orders")
+  puts "Insert total: #{result.first['num']}"
+end

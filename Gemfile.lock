@@ -1,0 +1,22 @@
+GEM
+  remote: https://ruby.taobao.org/
+  specs:
+    kiba (0.6.1)
+    kiba-plus (0.1.2)
+      kiba (~> 0.6)
+      mysql2 (~> 0.4)
+      pg (~> 0.18)
+    mysql2 (0.4.4)
+    pg (0.18.4)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  kiba
+  kiba-plus
+  mysql2
+  pg
+
+BUNDLED WITH
+   1.12.5
